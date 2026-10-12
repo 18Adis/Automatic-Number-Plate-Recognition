@@ -1,0 +1,51 @@
+.history-total { color: #718076; font-size: 12px; }
+.history-toolbar { display: flex; justify-content: space-between; gap: 18px; align-items: center; margin-bottom: 18px; }
+.history-search { display: flex; gap: 10px; align-items: center; background: #fff; border: 1px solid var(--line); border-radius: 8px; padding: 10px 13px; width: 290px; }
+.history-search svg { width: 17px; height: 17px; color: #8b978e; }
+.history-search input { min-width: 0; width: 100%; border: 0; background: transparent; color: var(--ink); font-size: 12px; outline-offset: 4px; }
+.history-actions { gap: 12px; }
+.history-table-wrap { border-radius: 12px; }
+.history-page th { padding: 16px; font-size: 9px; }
+.history-page td { padding: 14px 16px; font-size: 12px; color: #6b7b71; }
+.history-page tbody tr:hover { background: #fcfdfb; }
+.capture-thumb { width: 124px; padding: 5px; border: 1px solid #e2e8df; background: #f6f8f3; border-radius: 7px; display: flex; flex-direction: column; gap: 5px; align-items: center; }
+.capture-thumb:hover { border-color: #9fb695; background: #eff4e9; }
+.capture-thumb img { width: 112px; height: 44px; object-fit: contain; border-radius: 3px; }
+.capture-thumb span { font-size: 9px; color: #68825d; }
+.no-capture { display: inline-block; width: 124px; text-align: center; padding: 15px 5px; border: 1px dashed #e2e8df; border-radius: 7px; font-size: 10px; color: #8c978d; }
+.history-page .edit-plate { font-size: 14px; color: #294b38; gap: 9px; }
+.history-page .status-label { font-size: 10px; padding: 5px 8px; }
+.history-empty { min-height: 190px; font-size: 13px; }
+.history-pagination { display: flex; justify-content: space-between; align-items: center; padding-top: 16px; gap: 16px; color: #7d8a80; font-size: 11px; }
+.history-pagination > div { display: flex; gap: 8px; }
+.capture-dialog { width: 900px; padding: 24px; max-height: calc(100dvh - 32px); overflow: auto; }
+.capture-dialog .dialog-heading { margin-bottom: 18px; }
+.capture-dialog h2 { font-family: Consolas, monospace; font-size: 23px; font-weight: 600; letter-spacing: 1px; }
+.capture-dialog .dialog-heading p { margin: 7px 0 0; color: #83907f; }
+.close-dialog { min-width: 32px; min-height: 32px; }
+.image-controls { display: flex; justify-content: space-between; gap: 12px; margin-bottom: 14px; }
+.image-tabs { display: flex; gap: 7px; }
+.image-controls button[aria-pressed="true"] { background: #edf3e6; color: #2f563b; border-color: #b8cba7; }
+.image-viewport { background: #edf1e9; border: 1px solid var(--line); border-radius: 9px; overflow: auto; height: min(52dvh, 500px); display: block; position: relative; }
+.image-viewport img { display: block; width: 100%; max-width: none; height: auto; min-height: 100%; object-fit: contain; }
+.image-viewport img.enhanced { filter: grayscale(1) contrast(1.35) brightness(1.06); }
+.image-viewport > span { display: block; text-align: center; padding: 80px 16px; color: #899480; font-size: 13px; }
+.image-footer { display: flex; justify-content: space-between; align-items: center; gap: 24px; padding-top: 16px; }
+.image-footer label { display: grid; grid-template-columns: 1fr auto; gap: 7px 20px; min-width: 175px; margin: 0; color: #697c61; }
+.image-footer input { grid-column: 1 / -1; accent-color: #66864a; padding: 0; margin: 0; height: 18px; }
+.image-footer output { font-variant-numeric: tabular-nums; }
+.image-footer > span { font-size: 10px; color: #899582; text-align: right; }
+@media (max-width: 980px) { .history-toolbar { flex-wrap: wrap; } .history-actions { width: auto; } }
+@media (max-width: 760px) {
+  .history-toolbar { gap: 12px; }
+  .history-search { width: 100%; }
+  .history-actions { width: 100%; justify-content: flex-start; flex-wrap: wrap; }
+  .history-actions .text-button { margin-left: auto; margin-right: 0; }
+  .history-page td, .history-page th { padding: 12px; }
+  .capture-dialog { padding: 17px; }
+  .image-controls { flex-wrap: wrap; }
+  .image-footer { flex-wrap: wrap; gap: 12px; }
+  .image-footer label { width: 100%; }
+  .image-footer > span { text-align: left; }
+  .image-viewport { height: 40dvh; }
+}

@@ -1,0 +1,16 @@
+.venv/
+__pycache__/
+.pytest_cache/
+*.pyc
+.env
+.env.*
+!.env.example
+data/history.db*
+data/test-temp*/
+data/prepared/
+data/samples/
+static/examples/
+docs/dashboard-preview.png
+models/
+runs/
+*.log

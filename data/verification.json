@@ -1,0 +1,91 @@
+{
+  "model_mode": "pretrained",
+  "notice": "Smoke examples, not an accuracy benchmark. Overlays are actual model predictions.",
+  "images": [
+    {
+      "image": "sample-01.jpg",
+      "inference_ms": 136.3,
+      "detections": [
+        {
+          "text": "GJ27EC445",
+          "box": [
+            338,
+            439,
+            477,
+            480
+          ],
+          "detection_confidence": 0.8983936905860901,
+          "recognition_confidence": 0.9853665411472321
+        }
+      ]
+    },
+    {
+      "image": "sample-02.jpg",
+      "inference_ms": 53.4,
+      "detections": [
+        {
+          "text": "GJ23CF2793",
+          "box": [
+            232,
+            102,
+            306,
+            123
+          ],
+          "detection_confidence": 0.8940967917442322,
+          "recognition_confidence": 0.8587380290031433
+        }
+      ]
+    },
+    {
+      "image": "sample-03.jpg",
+      "inference_ms": 53.8,
+      "detections": [
+        {
+          "text": "GJ18BN1018",
+          "box": [
+            192,
+            283,
+            350,
+            349
+          ],
+          "detection_confidence": 0.8964192271232605,
+          "recognition_confidence": 0.9883905231952668
+        }
+      ]
+    },
+    {
+      "image": "sample-04.jpg",
+      "inference_ms": 53.0,
+      "detections": [
+        {
+          "text": "GJ01WG8676",
+          "box": [
+            162,
+            322,
+            341,
+            389
+          ],
+          "detection_confidence": 0.8902994394302368,
+          "recognition_confidence": 0.985431718826294
+        }
+      ]
+    },
+    {
+      "image": "sample-05.jpg",
+      "inference_ms": 76.5,
+      "detections": [
+        {
+          "text": "S9O9S88LT",
+          "box": [
+            259,
+            309,
+            398,
+            376
+          ],
+          "detection_confidence": 0.839357316493988,
+          "recognition_confidence": 0.8055194258689881
+        }
+      ]
+    }
+  ]
+}

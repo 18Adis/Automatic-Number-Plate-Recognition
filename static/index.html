@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#173e31">
+  <title>PlateSight — Number plate recognition</title>
+  <link rel="stylesheet" href="/static/styles.css">
+  <link rel="stylesheet" href="/static/dashboard.css">
+  <script src="/static/app.js" defer></script>
+</head>
+<body>
+  <svg class="icon-library" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><defs>
+    <symbol id="i-scan" viewBox="0 0 24 24"><path d="M8 3H5a2 2 0 0 0-2 2v3m13-5h3a2 2 0 0 1 2 2v3M3 16v3a2 2 0 0 0 2 2h3m13-5v3a2 2 0 0 1-2 2h-3M7 9h10v6H7z"/></symbol>
+    <symbol id="i-image" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="m3 16 5-5 5 5 3-3 5 5"/><circle cx="15.5" cy="8.5" r="1.5"/></symbol>
+    <symbol id="i-camera" viewBox="0 0 24 24"><path d="M8 6 9.5 3h5L16 6h4a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1z"/><circle cx="12" cy="12.5" r="4"/></symbol>
+    <symbol id="i-video" viewBox="0 0 24 24"><rect x="3" y="5" width="12" height="14" rx="2"/><path d="m15 10 6-4v12l-6-4"/></symbol>
+    <symbol id="i-upload" viewBox="0 0 24 24"><path d="M12 16V3m-5 5 5-5 5 5M4 16v4a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-4"/></symbol>
+    <symbol id="i-download" viewBox="0 0 24 24"><path d="M12 3v13m-5-5 5 5 5-5M4 17v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3"/></symbol>
+    <symbol id="i-play" viewBox="0 0 24 24"><path d="m8 4 12 8-12 8z"/></symbol>
+    <symbol id="i-pause" viewBox="0 0 24 24"><path d="M8 4v16M16 4v16"/></symbol>
+    <symbol id="i-stop" viewBox="0 0 24 24"><rect x="5" y="5" width="14" height="14" rx="2"/></symbol>
+    <symbol id="i-arrow" viewBox="0 0 24 24"><path d="M4 12h16m-6-6 6 6-6 6"/></symbol>
+    <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></symbol>
+    <symbol id="i-check" viewBox="0 0 24 24"><path d="m5 12 4 4L19 6"/></symbol>
+    <symbol id="i-edit" viewBox="0 0 24 24"><path d="m14 5 5 5M4 20l5-1L21 7l-5-5L4 14z"/></symbol>
+  </defs></svg>
+  <aside class="sidebar">
+    <a class="brand" href="/" aria-label="PlateSight home"><span class="brand-icon"><svg><use href="#i-scan"/></svg></span><span>PlateSight</span></a>
+    <p class="nav-label">WORKSPACE</p>
+    <nav aria-label="Main navigation"><a class="nav-item active" href="/"><svg><use href="#i-scan"/></svg>Recognition<span class="nav-dot"></span></a><a class="nav-item" href="/history" target="_blank" rel="noopener" aria-label="Detection history (opens in a new tab)"><svg><use href="#i-clock"/></svg>Detection history</a></nav>
+    <div class="sidebar-bottom"><span class="local-icon"><svg><use href="#i-check"/></svg></span><div><strong>Local processing</strong></div></div>
+    <div class="sidebar-footer"><span class="version-dot"></span>LOCAL WORKSPACE <span>v1.0</span></div>
+  </aside>
+  <main id="workspace">
+    <header class="topbar"><div class="breadcrumb">Workspace <span>/</span> <strong>Recognition</strong></div><div class="workspace-label"><span></span>Local session</div></header>
+    <div class="page-content">
+      <section class="page-heading"><div><h1>Number plate recognition</h1><p class="subtitle">Analyze images, video and live camera feeds.</p></div><div class="model-badge" id="modelBadge"><span class="status-dot"></span><span id="modelBadgeText">Checking model</span></div></section>
+      <div class="model-notice" id="modelNotice" role="status"><svg><use href="#i-scan"/></svg><span id="modelMessage">Connecting to the recognition engine…</span><button id="warmupBtn" class="text-button" hidden>Load model <span aria-hidden="true">↗</span></button></div>
+      <section class="recognition-layout" aria-label="Recognition workspace">
+        <div class="workbench">
+          <div class="input-tabs" role="tablist" aria-label="Input source">
+            <button type="button" class="input-tab selected" id="tabUpload" role="tab" aria-selected="true" aria-controls="inputPanel" data-mode="upload"><svg><use href="#i-image"/></svg>Upload image</button>
+            <button type="button" class="input-tab" id="tabCamera" role="tab" aria-selected="false" aria-controls="inputPanel" tabindex="-1" data-mode="camera"><svg><use href="#i-camera"/></svg>Live camera</button>
+            <button type="button" class="input-tab" id="tabVideo" role="tab" aria-selected="false" aria-controls="inputPanel" tabindex="-1" data-mode="video"><svg><use href="#i-video"/></svg>Video</button>
+          </div>
+          <div id="inputPanel" role="tabpanel" aria-labelledby="tabUpload">
+            <div class="viewer-header"><div><span class="viewer-status-dot" id="viewerDot"></span><strong id="viewerTitle">Image preview</strong><span class="viewer-subtitle" id="viewerSubtitle">Ready for input</span></div><span class="source-chip" id="sourceChip">IMAGE</span></div>
+            <div class="stage" id="stage">
+              <img id="sourceImage" alt="Uploaded vehicle image" hidden>
+              <video id="sourceVideo" playsinline muted hidden></video>
+              <canvas id="overlay" aria-label="Number plate bounding boxes" hidden></canvas>
+              <div class="empty-state" id="emptyState">
+                <div class="upload-symbol" aria-hidden="true"><svg><use href="#i-upload"/></svg></div>
+                <h2 id="emptyTitle">Upload a vehicle image</h2><p id="emptyDescription">Drag and drop an image, or select a file.</p><button class="button primary" id="chooseFileBtn"><svg><use href="#i-upload"/></svg><span id="chooseFileLabel">Choose image</span><svg><use href="#i-arrow"/></svg></button><span class="file-hint" id="fileHint">JPG, PNG, WEBP · up to 30 MB</span>
+              </div>
+              <div class="busy-overlay" id="busyOverlay" hidden><span class="spinner"></span><span id="busyText">Reading number plates…</span></div>
+              <div class="frame-label" id="frameLabel" hidden></div>
+            </div>
+            <input type="file" id="imageInput" accept="image/*" hidden><input type="file" id="videoInput" accept="video/*" hidden>
+            <div class="input-toolbar" id="uploadToolbar"><div class="input-name"><svg><use href="#i-image"/></svg><span id="fileName">No image selected</span></div><button id="replaceBtn" class="button small secondary">Choose image</button><button id="reanalyzeBtn" class="button small primary" disabled>Analyze</button></div>
+            <div class="input-toolbar camera-toolbar" id="cameraToolbar" hidden><label class="sr-only" for="cameraSelect">Camera</label><select id="cameraSelect"><option value="">Default camera</option></select><button id="cameraStartBtn" class="button small primary"><svg><use href="#i-play"/></svg>Start camera</button><button id="pauseBtn" class="button small secondary" hidden><svg><use href="#i-pause"/></svg><span>Pause</span></button><button id="snapshotBtn" class="icon-button" title="Capture and read a snapshot" aria-label="Capture and read a snapshot" disabled><svg><use href="#i-camera"/></svg></button><button id="stopBtn" class="icon-button" title="Stop camera" aria-label="Stop camera" disabled><svg><use href="#i-stop"/></svg></button></div>
+            <div class="input-toolbar" id="videoToolbar" hidden><div class="input-name"><svg><use href="#i-video"/></svg><span id="videoName">No video selected</span></div><button id="replaceVideoBtn" class="button small secondary">Choose video</button><button id="videoPlayBtn" class="button small primary" disabled><svg><use href="#i-play"/></svg><span>Play & analyze</span></button><button id="videoStopBtn" class="icon-button" title="Stop video" aria-label="Stop video" disabled><svg><use href="#i-stop"/></svg></button></div>
+            <div id="feedback" class="feedback" role="status" aria-live="polite" hidden></div>
+          </div>
+          <div class="metrics" aria-label="Analysis statistics"><div><span>Plates in frame</span><strong id="plateCount">—</strong></div><div><span>Inference time</span><strong id="latency">—</strong></div><div><span>Compute device</span><strong id="device">—</strong></div><div><span>Session readings</span><strong id="readingCount">0</strong></div></div>
+        </div>
+        <aside class="inspector"><div class="inspector-heading"><h2>Recognition results</h2><span class="count-badge" id="resultCount">0</span></div><div class="inspector-caption"></div><div id="results" class="results" aria-live="polite"><div class="result-empty"><span class="result-empty-icon"><svg><use href="#i-scan"/></svg></span><h3>No results yet</h3><p>Select an input to begin.</p></div></div><div class="settings"><label for="confidence">Detection threshold <output id="confidenceValue">35%</output></label><input type="range" id="confidence" min="10" max="90" step="5" value="35"></div><div class="model-details"><span>RECOGNITION ENGINE</span><strong id="engineName">Connecting…</strong><p id="engineDescription">Model details will appear when connected.</p></div></aside>
+      </section>
+      <footer class="page-footer"><span>PlateSight</span><span>Local workspace</span></footer>
+    </div>
+  </main>
+</body>
+</html>
