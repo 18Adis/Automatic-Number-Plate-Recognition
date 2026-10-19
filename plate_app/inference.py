@@ -6,13 +6,16 @@ import math
 import os
 import re
 import threading
+import time
+import hashlib
 from dataclasses import dataclass
 from statistics import mean, median
 from typing import Any
 
 import numpy as np
 
-from .config import Settings
+from .config import PROJECT_ROOT, Settings
+from .ocr import OCRReaders, OCR_METHODS
 
 
 def normalize_text(text: str) -> str:
@@ -33,6 +36,8 @@ class Prediction:
     text: str
     detection_confidence: float
     recognition_confidence: float
+    ocr_method: str = "cct"
+    ocr_ms: float = 0.0
 
 
 def ordered_characters(characters: list[dict]) -> tuple[str, float]:
@@ -79,6 +84,7 @@ class InferenceEngine:
         self._custom_characters = None
         self._loading = False
         self._error: str | None = None
+        self._readers = OCRReaders(self.settings.model_dir, PROJECT_ROOT)
 
     def status(self) -> dict:
         ready = self._alpr is not None
@@ -90,6 +96,10 @@ class InferenceEngine:
             message = self._error
         else:
             message = "Models will load when you analyze an image or choose Prepare models."
+        methods = self._readers.methods()
+        methods[0]["ready"] = ready
+        if self.settings.character_weights:
+            methods[0]["label"] = "Custom character model"
         return {
             "ready": ready,
             "model_mode": self.settings.model_mode,
@@ -97,11 +107,15 @@ class InferenceEngine:
             "recognizer": self.settings.character_weights.name if self.settings.character_weights else self.settings.recognizer_name,
             "device": "cpu" if self.settings.model_mode == "pretrained" else self.settings.device,
             "message": message,
+            "ocr_methods": methods,
         }
 
-    def warmup(self) -> dict:
+    def warmup(self, ocr_method: str = "cct") -> dict:
+        if ocr_method not in OCR_METHODS:
+            raise ValueError("Unknown OCR method")
         with self._lock:
             self._initialize()
+            self._readers.prepare(ocr_method)
         return self.status()
 
     def _initialize(self) -> None:
@@ -157,24 +171,7 @@ class InferenceEngine:
         finally:
             self._loading = False
 
-    def predict(self, image: np.ndarray, confidence: float = 0.35) -> list[Prediction]:
-        with self._lock:
-            self._initialize()
-            if not self._custom_detector and not self._custom_characters:
-                results = self._alpr.predict(image)
-                return [
-                    Prediction(
-                        box=[int(result.detection.bounding_box.x1), int(result.detection.bounding_box.y1),
-                             int(result.detection.bounding_box.x2), int(result.detection.bounding_box.y2)],
-                        text=result.ocr.text if result.ocr else "",
-                        detection_confidence=probability(result.detection.confidence),
-                        recognition_confidence=probability(result.ocr.confidence) if result.ocr else 0.0,
-                    )
-                    for result in results if result.detection.confidence >= confidence
-                ]
-            return self._predict_custom(image, confidence)
-
-    def _predict_custom(self, image: np.ndarray, confidence: float) -> list[Prediction]:
+    def _detect(self, image: np.ndarray, confidence: float) -> list[tuple[list[int], float]]:
         if self._custom_detector:
             results = self._custom_detector.predict(image, conf=confidence, device=self.settings.device, verbose=False)[0]
             boxes = [(list(map(int, box.xyxy[0].tolist())), float(box.conf[0])) for box in results.boxes]
@@ -183,21 +180,81 @@ class InferenceEngine:
                       probability(item.confidence)) for item in self._alpr.detector.predict(image)
                      if item.confidence >= confidence]
         height, width = image.shape[:2]
-        predictions = []
-        for box, score in boxes:
+        accepted = []
+        for box, score in boxes[:64]:
             x1, y1, x2, y2 = box
             box = [max(0, min(width, x1)), max(0, min(height, y1)), max(0, min(width, x2)), max(0, min(height, y2))]
             x1, y1, x2, y2 = box
             if x2 <= x1 or y2 <= y1:
                 continue
-            crop = image[y1:y2, x1:x2]
-            if self._custom_characters:
-                result = self._custom_characters.predict(crop, conf=0.25, device=self.settings.device, verbose=False)[0]
-                characters = [{"box": item.xyxy[0].tolist(), "confidence": float(item.conf[0]),
-                               "label": str(result.names[int(item.cls[0])])} for item in result.boxes]
-                text, ocr_score = ordered_characters(characters)
-            else:
-                ocr = self._alpr.ocr.predict(crop)
-                text, ocr_score = (ocr.text, probability(ocr.confidence)) if ocr else ("", 0.0)
-            predictions.append(Prediction(box, text, probability(score), probability(ocr_score)))
-        return predictions
+            accepted.append((box, probability(score)))
+        return accepted
+
+    def _read_crop(self, crop: np.ndarray, method: str) -> tuple[str, float]:
+        if method != "cct":
+            return self._readers.read(crop, method)
+        if self._custom_characters:
+            result = self._custom_characters.predict(crop, conf=0.25, device=self.settings.device, verbose=False)[0]
+            characters = [{"box": item.xyxy[0].tolist(), "confidence": float(item.conf[0]),
+                           "label": str(result.names[int(item.cls[0])])} for item in result.boxes]
+            return ordered_characters(characters)
+        ocr = self._alpr.ocr.predict(crop)
+        return (ocr.text, probability(ocr.confidence)) if ocr else ("", 0.0)
+
+    def predict(self, image: np.ndarray, confidence: float = 0.35, ocr_method: str = "cct") -> list[Prediction]:
+        if ocr_method not in OCR_METHODS:
+            raise ValueError("Unknown OCR method")
+        with self._lock:
+            self._initialize()
+            self._readers.prepare(ocr_method)
+            predictions = []
+            for box, score in self._detect(image, confidence):
+                x1, y1, x2, y2 = box
+                started = time.perf_counter()
+                text, ocr_score = self._read_crop(image[y1:y2, x1:x2].copy(), ocr_method)
+                elapsed = round((time.perf_counter() - started) * 1000, 2)
+                predictions.append(Prediction(box, text, score, probability(ocr_score), ocr_method, elapsed))
+            return predictions
+
+    def compare(self, image: np.ndarray, confidence: float, methods: list[str]) -> dict:
+        if any(method not in OCR_METHODS for method in methods):
+            raise ValueError("Unknown OCR method")
+        with self._lock:
+            base_ready = self._alpr is not None
+            started = time.perf_counter()
+            self._initialize()
+            initialization_ms = round((time.perf_counter() - started) * 1000, 2) if not base_ready else 0.0
+            started = time.perf_counter()
+            boxes = self._detect(image, confidence)
+            detection_ms = round((time.perf_counter() - started) * 1000, 2)
+            preparations, errors = {}, {}
+            if boxes:
+                for method in methods:
+                    started = time.perf_counter()
+                    try:
+                        self._readers.prepare(method)
+                    except Exception as error:
+                        errors[method] = str(error)
+                    preparations[method] = round((time.perf_counter() - started) * 1000, 2)
+            detections = []
+            for box, score in boxes:
+                x1, y1, x2, y2 = box
+                crop = image[y1:y2, x1:x2]
+                readings = []
+                for method in methods:
+                    reading = {"ocr_method": method, "text": "", "raw_text": "", "recognition_confidence": None,
+                               "ocr_ms": None, "error": errors.get(method)}
+                    if method not in errors:
+                        try:
+                            started = time.perf_counter()
+                            text, ocr_score = self._read_crop(crop.copy(), method)
+                            reading.update(text=normalize_text(text), raw_text=str(text)[:64],
+                                           recognition_confidence=round(probability(ocr_score), 4),
+                                           ocr_ms=round((time.perf_counter() - started) * 1000, 2))
+                        except Exception as error:
+                            reading["error"] = str(error)
+                    readings.append(reading)
+                detections.append({"box": box, "detection_confidence": score,
+                                   "crop_sha256": hashlib.sha256(crop.tobytes()).hexdigest(), "readings": readings})
+            return {"detections": detections, "detection_ms": detection_ms, "initialization_ms": initialization_ms,
+                    "preparation_ms": preparations, "methods": methods}

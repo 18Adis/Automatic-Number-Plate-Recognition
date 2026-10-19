@@ -21,6 +21,11 @@ class HistoryStore:
                 status TEXT NOT NULL, session_id TEXT, last_seen REAL NOT NULL
             )""")
             connection.execute("CREATE INDEX IF NOT EXISTS history_recent ON detections(session_id, text, last_seen)")
+            columns = {row[1] for row in connection.execute("PRAGMA table_info(detections)")}
+            if "ocr_method" not in columns:
+                connection.execute("ALTER TABLE detections ADD COLUMN ocr_method TEXT NOT NULL DEFAULT 'cct'")
+            if "ocr_ms" not in columns:
+                connection.execute("ALTER TABLE detections ADD COLUMN ocr_ms REAL")
             connection.execute("""CREATE TABLE IF NOT EXISTS captures (
                 detection_id TEXT PRIMARY KEY REFERENCES detections(id) ON DELETE CASCADE,
                 image_jpeg BLOB NOT NULL, crop_jpeg BLOB NOT NULL
@@ -35,11 +40,12 @@ class HistoryStore:
     def record(self, detection: dict, source: str, session_id: str | None = None, now: float | None = None,
                image_jpeg: bytes | None = None, crop_jpeg: bytes | None = None) -> str:
         now = time.time() if now is None else now
+        method = detection.get("ocr_method", "cct")
         with self._lock, self._connect() as connection:
             if source in {"live", "video"} and session_id:
                 previous = connection.execute(
-                    "SELECT id FROM detections WHERE session_id=? AND text=? AND source=? AND last_seen>=? ORDER BY last_seen DESC LIMIT 1",
-                    (session_id, detection["text"], source, now - 30),
+                    "SELECT id FROM detections WHERE session_id=? AND text=? AND source=? AND ocr_method=? AND last_seen>=? ORDER BY last_seen DESC LIMIT 1",
+                    (session_id, detection["text"], source, method, now - 30),
                 ).fetchone()
                 if previous:
                     connection.execute("UPDATE detections SET last_seen=? WHERE id=?", (now, previous["id"]))
@@ -48,10 +54,10 @@ class HistoryStore:
             identity = uuid.uuid4().hex
             timestamp = datetime.fromtimestamp(now, timezone.utc).isoformat()
             connection.execute(
-                "INSERT INTO detections (id,text,raw_text,source,timestamp,detection_confidence,recognition_confidence,status,session_id,last_seen) VALUES (?,?,?,?,?,?,?,?,?,?)",
+                "INSERT INTO detections (id,text,raw_text,source,timestamp,detection_confidence,recognition_confidence,status,session_id,last_seen,ocr_method,ocr_ms) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
                 (identity, detection["text"], detection["raw_text"], source, timestamp,
                  detection["detection_confidence"], detection["recognition_confidence"],
-                 detection["status"], session_id, now),
+                 detection["status"], session_id, now, method, detection.get("ocr_ms")),
             )
             self._save_capture(connection, identity, image_jpeg, crop_jpeg)
             return identity
@@ -71,7 +77,7 @@ class HistoryStore:
     def list(self, limit: int = 1000) -> list[dict]:
         with self._connect() as connection:
             rows = connection.execute("""SELECT d.id,d.text,d.raw_text,d.source,d.timestamp,
-                d.detection_confidence,d.recognition_confidence,d.status,
+                d.detection_confidence,d.recognition_confidence,d.status,d.ocr_method,d.ocr_ms,
                 CASE WHEN c.detection_id IS NULL THEN 0 ELSE 1 END AS has_image
                 FROM detections d LEFT JOIN captures c ON c.detection_id=d.id
                 ORDER BY d.timestamp DESC LIMIT ?""", (limit,))

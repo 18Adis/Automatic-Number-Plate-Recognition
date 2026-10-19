@@ -33,8 +33,8 @@
     $('pageLabel').textContent = items.length ? `${start + 1}–${Math.min(start + state.pageSize, items.length)} of ${items.length}` : '0 detections';
     $('historyBody').innerHTML = items.length ? items.slice(start, start + state.pageSize).map(item => {
       const thumbnail = imagePath(item.thumbnail_url);
-      return `<tr><td>${thumbnail ? `<button class="capture-thumb" data-image="${escape(item.id)}" aria-label="View image for ${escape(item.text)}"><img src="${escape(thumbnail)}" alt="Plate ${escape(item.text)}" loading="lazy"><span>View image ↗</span></button>` : '<span class="no-capture">No saved image</span>'}</td><td><button class="edit-plate" data-edit="${escape(item.id)}" aria-label="Correct plate ${escape(item.text)}">${escape(item.text)}<svg aria-hidden="true"><use href="#i-edit"/></svg></button></td><td>${escape(date(item.timestamp))}</td><td>${escape(source(item.source))}</td><td>${percent(item.detection_confidence)}</td><td>${percent(item.recognition_confidence)}</td><td><span class="status-label ${item.status === 'confirmed' ? '' : 'review'}">${item.status === 'confirmed' ? 'Confirmed' : 'Needs review'}</span></td></tr>`;
-    }).join('') : `<tr><td colspan="7"><div class="history-empty">${query ? 'No matching plate numbers.' : 'No saved detections yet.'}</div></td></tr>`;
+      return `<tr><td>${thumbnail ? `<button class="capture-thumb" data-image="${escape(item.id)}" aria-label="View image for ${escape(item.text)}"><img src="${escape(thumbnail)}" alt="Plate ${escape(item.text)}" loading="lazy"><span>View image ↗</span></button>` : '<span class="no-capture">No saved image</span>'}</td><td><button class="edit-plate" data-edit="${escape(item.id)}" aria-label="Correct plate ${escape(item.text)}">${escape(item.text)}<svg aria-hidden="true"><use href="#i-edit"/></svg></button></td><td>${escape(date(item.timestamp))}</td><td>${escape(source(item.source))}</td><td>${escape(({cct:"Plate OCR · CCT",easyocr:"EasyOCR",tesseract:"Tesseract",paddleocr:"PaddleOCR"})[item.ocr_method] || item.ocr_method || "Plate OCR · CCT")}</td><td>${percent(item.detection_confidence)}</td><td>${percent(item.recognition_confidence)}</td><td><span class="status-label ${item.status === 'confirmed' ? '' : 'review'}">${item.status === 'confirmed' ? 'Confirmed' : 'Needs review'}</span></td></tr>`;
+    }).join('') : `<tr><td colspan="8"><div class="history-empty">${query ? 'No matching plate numbers.' : 'No saved detections yet.'}</div></td></tr>`;
   }
 
   async function refresh() {
@@ -50,7 +50,7 @@
       $('historyError').hidden = false;
       if (!state.items.length) {
         $('totalLabel').textContent = 'History unavailable';
-        $('historyBody').innerHTML = '<tr><td colspan="7"><div class="history-empty">Unable to load history. Select Refresh to try again.</div></td></tr>';
+        $('historyBody').innerHTML = '<tr><td colspan="8"><div class="history-empty">Unable to load history. Select Refresh to try again.</div></td></tr>';
       }
     } finally {
       state.loading = false;

@@ -1,0 +1,4 @@
+# Additional local CPU OCR engines. Run Setup OCR.ps1 after the baseline setup.
+easyocr==1.7.2
+paddleocr==3.3.3
+paddlepaddle==3.3.1

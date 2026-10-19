@@ -1,9 +1,38 @@
-/* Dashboard refinement: restrained surfaces, legible labels and real examples. */
+/* Dashboard refinement: restrained surfaces and legible labels. */
 :root {
   --muted: #647369;
   --line: #e0e6df;
   --radius: 10px;
 }
+.ocr-selector { display: flex; align-items: center; gap: 14px; margin-bottom: 20px; }
+.ocr-selector label { color: #6e7d6b; font-size: 12px; white-space: nowrap; }
+.ocr-selector select { width: 100%; max-width: 310px; padding: 10px; border: 1px solid var(--line); border-radius: 6px; color: #294b38; background: #fff; font-size: 12px; }
+.result-method { padding: 10px 18px; border-bottom: 1px solid var(--line); color: #6f8068; font-size: 11px; background: #f8faf5; }
+.ocr-comparison { margin-top: 22px; padding: 20px; background: #fff; border: 1px solid var(--line); border-radius: 10px; min-width: 0; }
+.comparison-heading { display: flex; justify-content: space-between; align-items: center; gap: 14px; }
+.comparison-heading h2 { margin: 0; font-size: 15px; font-weight: 600; }
+.comparison-heading p { margin: 6px 0 0; font-size: 11px; color: #788571; }
+.comparison-input { margin-top: 18px; }
+.comparison-input label { display: block; font-size: 11px; margin-bottom: 8px; color: #607358; }
+.comparison-input label span { color: #8c9783; margin-left: 7px; font-size: 10px; }
+.comparison-input input { width: 100%; max-width: 260px; padding: 9px 11px; border: 1px solid var(--line); border-radius: 6px; background: #fafbf8; font-family: Consolas, monospace; color: #284b34; font-size: 13px; text-transform: uppercase; }
+.comparison-input > span { display: block; color: #8c9784; font-size: 10px; margin-top: 7px; line-height: 1.6; }
+.comparison-status { color: #687b5e; font-size: 11px; margin: 18px 0 0; line-height: 1.6; }
+.comparison-plate { margin-top: 18px; }
+.comparison-plate-heading { display: flex; gap: 12px; align-items: center; font-size: 11px; color: #6f7f64; padding-bottom: 12px; }
+.comparison-plate-heading img { width: 105px; height: 40px; object-fit: contain; background: #f0f3eb; border-radius: 4px; }
+.comparison-plate-heading > span { margin-left: auto; font-size: 10px; }
+.comparison-plate-heading b { font-family: Consolas, monospace; }
+.comparison-table-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 7px; }
+.comparison-table-wrap th { font-size: 8px; padding: 12px; }
+.comparison-table-wrap td { padding: 13px 12px; color: #75836c; font-size: 11px; }
+.comparison-table-wrap .comparison-reading { font-family: Consolas, monospace; color: #284b36; font-size: 13px; font-weight: 600; }
+.comparison-error { display: block; max-width: 240px; white-space: normal; color: #a56347; font: 11px/1.5 'Segoe UI',sans-serif; }
+.match-yes { color: #487035; }.match-no { color: #a57b3e; }
+.comparison-footer { display: flex; gap: 12px; justify-content: space-between; align-items: center; margin-top: 16px; }
+.comparison-footer > span { max-width: 350px; font-size: 10px; line-height: 1.6; color: #8b9681; }
+.comparison-footer button { font-size: 10px; white-space: nowrap; }
+@media (max-width:760px) { .ocr-comparison { padding:16px; } .comparison-heading,.comparison-footer { align-items:flex-start; flex-wrap:wrap; } .comparison-plate-heading { flex-wrap:wrap; } }
 body { font-size: 14px; }
 .sidebar { padding-top: 28px; }
 .brand { font-size: 22px; letter-spacing: -.6px; }

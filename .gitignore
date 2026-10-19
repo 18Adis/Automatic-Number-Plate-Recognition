@@ -14,3 +14,4 @@ docs/dashboard-preview.png
 models/
 runs/
 *.log
+tools/

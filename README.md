@@ -24,6 +24,13 @@ setup, ordinary recognition uses the cached models without internet access.
 ## Use
 
 - **Upload image:** choose a vehicle photo.
+- **OCR method:** select Plate OCR (CCT), EasyOCR, Tesseract, or PaddleOCR above
+  the image preview. The selected method applies to images, snapshots, live camera,
+  and video. Switching methods pauses analysis; select Analyze or Resume to continue.
+- **Compare OCR:** compares all installed methods on the same detected plate crops.
+  For camera/video it freezes the current frame. Enter the correct plate number
+  optionally to show exact match and character error rate, then export the comparison
+  as CSV. Comparisons do not add duplicate entries to detection history.
 - **Live camera:** start the webcam, allow browser camera access, and point it at a plate.
   Pause stops analysis; Stop releases the camera. The snapshot control freezes one frame.
 - **Video:** choose a browser-supported video, then Play & analyze. Video stays in the browser;
@@ -37,6 +44,23 @@ setup, ordinary recognition uses the cached models without internet access.
 The frontend resizes image/camera inputs to at most 1280 pixels per side. Browser
 image selection allows 30 MB; each transmitted frame must be at most 12 MB. The
 API accepts JPEG, PNG and WebP, up to 20 megapixels and 10,000 pixels per side.
+
+## Additional OCR methods
+
+The baseline setup installs CCT. On another computer, add the other engines with
+the following commands after `Setup.ps1` (Python 3.12 is the tested configuration):
+
+```powershell
+winget install --id UB-Mannheim.TesseractOCR --exact
+powershell -ExecutionPolicy Bypass -File ".\Setup OCR.ps1"
+```
+
+EasyOCR and PaddleOCR download their models once to `models/`. Tesseract needs
+English language data; an existing installation can be selected with
+`PLATE_TESSERACT_CMD`. The dropdown marks missing installations as needing setup.
+All four methods run locally on CPU. History and its CSV export record the OCR
+method and per-plate OCR time. See [OCR comparison guide](docs/OCR_COMPARISON.md)
+for the comparison protocol, model details, and timing definitions.
 
 ## Models and limits
 

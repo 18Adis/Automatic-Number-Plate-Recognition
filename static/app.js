@@ -8,6 +8,7 @@
     generation: 0, session: crypto.randomUUID(), image: null, imageUrl: null,
     videoUrl: null, lastResult: null, resultAt: 0,
     sessionIds: new Set(),
+    ocrMethod: 'cct', methods: [], preparing: false, comparison: null,
   };
   const video = $('sourceVideo');
   const sourceImage = $('sourceImage');
@@ -39,6 +40,10 @@
   }
 
   function clearResults() {
+    state.comparison = null;
+    $('comparisonResults').hidden = true;
+    $('comparisonStatus').hidden = true;
+    $('comparisonFooter').hidden = true;
     state.lastResult = null;
     overlay.hidden = true;
     $('frameLabel').hidden = true;
@@ -49,11 +54,18 @@
   }
 
   function updateButtons() {
+    $('ocrMethod').disabled = state.inFlight || state.preparing;
+    $('compareBtn').disabled = state.inFlight || state.preparing || (state.mode === 'upload' ? !state.image : !video.videoWidth);
+    $('expectedText').disabled = state.inFlight;
+    if (state.preparing) {
+      for (const id of ['reanalyzeBtn','snapshotBtn','pauseBtn','videoPlayBtn','cameraStartBtn']) $(id).disabled = true;
+      return;
+    }
     $('reanalyzeBtn').disabled = !state.image || !state.ready || state.inFlight;
     $('cameraStartBtn').disabled = state.starting || state.inFlight;
     $('cameraStartBtn').hidden = !!state.stream;
     $('pauseBtn').hidden = !state.stream;
-    $('pauseBtn').disabled = !state.ready;
+    $('pauseBtn').disabled = !state.ready || (state.inFlight && !state.live);
     $('pauseBtn').innerHTML = `${icon(state.live ? 'pause' : 'play')}<span>${state.live ? 'Pause' : 'Resume'}</span>`;
     $('snapshotBtn').disabled = !state.stream || state.inFlight || !state.ready;
     $('stopBtn').disabled = !state.stream && !state.starting;
@@ -133,17 +145,23 @@
   async function refreshStatus() {
     try {
       const status = await api('/api/status');
+      state.methods = status.ocr_methods || [];
+      $('ocrMethod').innerHTML = state.methods.map(method => `<option value="${escape(method.id)}" ${method.available ? '' : 'disabled'}>${escape(method.label)}${method.available ? '' : ' · setup needed'}</option>`).join('');
+      $('ocrMethod').value = state.ocrMethod;
       state.model = status;
-      state.ready = Boolean(status.ready);
+      const currentMethod = state.methods.find(method => method.id === state.ocrMethod);
+      state.ready = Boolean(status.ready && (currentMethod?.ready ?? true));
       const custom = /custom/i.test(status.model_mode || '');
-      $('modelBadge').className = `model-badge ${status.ready ? 'ready' : 'error'}`;
-      $('modelBadgeText').textContent = status.ready ? (custom ? 'Custom model ready' : 'Model ready') : 'Model not loaded';
+      $('modelBadge').className = `model-badge ${state.ready ? 'ready' : 'error'}`;
+      $('modelBadgeText').textContent = state.ready ? (custom ? 'Custom model ready' : 'Model ready') : 'OCR method not loaded';
       $('modelMessage').textContent = status.message || (status.ready ? (custom ? 'Your custom model is ready for recognition.' : 'Pretrained baseline active. Results have not yet been validated on your dataset.') : 'Load the recognition model to start analyzing images.');
-      $('modelNotice').hidden = status.ready;
-      $('warmupBtn').hidden = status.ready;
+      if (status.ready && !state.ready) $('modelMessage').textContent = 'Load the selected OCR method to start recognition.';
+      $('modelNotice').hidden = state.ready;
+      $('warmupBtn').hidden = state.ready;
       $('device').textContent = status.device ? String(status.device).toUpperCase() : '—';
-      $('engineName').textContent = custom ? 'Custom trained model' : 'Pretrained baseline';
-      $('engineDescription').textContent = custom ? 'Dataset-trained detection and recognition.' : 'Plate detection + character recognition';
+      const selected = state.methods.find(method => method.id === state.ocrMethod);
+      $('engineName').textContent = selected?.label || 'Plate OCR · CCT';
+      $('engineDescription').textContent = selected?.message || 'Plate detection + character recognition';
       $('engineName').title = [status.detector, status.recognizer].filter(Boolean).join(' / ');
     } catch (error) {
       state.ready = false;
@@ -159,18 +177,22 @@
   }
 
   async function warmup() {
+    state.preparing = true;
+    updateButtons();
     $('warmupBtn').disabled = true;
     $('warmupBtn').textContent = 'Loading…';
     $('modelMessage').textContent = 'Loading the recognition engine. The first load may take a little longer.';
     try {
-      await api('/api/warmup', {method: 'POST'});
+      await api('/api/warmup', {method: 'POST', body:new URLSearchParams({ocr_method:state.ocrMethod})});
       await refreshStatus();
     } catch (error) {
       await refreshStatus();
       feedback(`The model could not load: ${error.message}`, 'error');
     } finally {
+      state.preparing = false;
       $('warmupBtn').disabled = false;
       $('warmupBtn').textContent = 'Load model ↗';
+      updateButtons();
     }
   }
 
@@ -197,6 +219,8 @@
         const crop = typeof detection.crop_data_url === 'string' && /^data:image\/(jpeg|png|webp);base64,/.test(detection.crop_data_url) ? `<img class="result-crop" src="${escape(detection.crop_data_url)}" alt="Detected number plate ${index + 1}">` : '';
         return `<article class="result-card"><div class="result-topline"><span>PLATE ${String(index + 1).padStart(2,'0')}</span><span class="status-label ${statusClass(detection.status)}">${escape(statusName(detection.status))}</span></div>${crop}<div class="plate-number">${escape(detection.text || 'Reading…')}</div>${!detection.text ? '<p class="result-description">Plate located. Characters could not be read confidently.</p>' : ''}<div class="confidence-row"><span>Plate detection</span><strong>${percent(detection.detection_confidence)}</strong></div><div class="confidence-bar"><span style="width:${Math.max(0,Math.min(100,(detection.detection_confidence || 0)*100))}%"></span></div><div class="confidence-row"><span>Character recognition</span><strong>${percent(detection.recognition_confidence)}</strong></div><div class="confidence-bar"><span style="width:${Math.max(0,Math.min(100,(detection.recognition_confidence || 0)*100))}%"></span></div></article>`;
       }).join('');
+      const methodLabel = state.methods.find(method => method.id === result.ocr_method)?.label || result.ocr_method;
+      $('results').insertAdjacentHTML('afterbegin', `<div class="result-method">${escape(methodLabel)} · ${detections.reduce((sum,item) => sum + (item.ocr_ms || 0),0).toFixed(1)} ms OCR</div>`);
       $('readingCount').textContent = String(state.sessionIds.size);
     }
     drawOverlay();
@@ -245,7 +269,7 @@
   }
 
   async function analyzeBlob(blob, source, generation = state.generation) {
-    if (state.inFlight || !state.ready || generation !== state.generation) return;
+    if (state.inFlight || state.preparing || !state.ready || generation !== state.generation) return;
     const controller = new AbortController();
     state.controller = controller;
     state.inFlight = true;
@@ -262,6 +286,7 @@
       data.append('source', source);
       data.append('session_id', state.session);
       data.append('confidence', String(Number($('confidence').value) / 100));
+      data.append('ocr_method', state.ocrMethod);
       const result = await api('/api/analyze', {method:'POST', body:data, signal:controller.signal});
       if (generation !== state.generation) return;
       showResults(result, performance.now()-started, source);
@@ -499,6 +524,91 @@
     } catch (error) { feedback(`This video could not play: ${error.message}`, 'error'); }
   }
 
+  function renderComparison(result) {
+    state.comparison = {...result, compared_at:new Date().toISOString()};
+    const setup = (result.initialization_ms || 0) + Object.values(result.preparation_ms || {}).reduce((a,b) => a+b,0);
+    $('comparisonStatus').textContent = result.detections.length ? `Detection ${result.detection_ms.toFixed(1)} ms · model setup ${setup.toFixed(0)} ms (excluded below)` : 'No plate found. Try a clearer view or lower the detection threshold.';
+    $('comparisonResults').innerHTML = result.detections.map((plate,index) => {
+      const crop = /^data:image\/jpeg;base64,/.test(plate.crop_data_url || '') ? `<img src="${escape(plate.crop_data_url)}" alt="Comparison plate ${index+1}">` : '';
+      return `<div class="comparison-plate"><div class="comparison-plate-heading">${crop}<strong>Plate ${String(index+1).padStart(2,'0')}</strong>${result.expected_text ? `<span>Expected: <b>${escape(result.expected_text)}</b></span>` : ''}</div><div class="comparison-table-wrap"><table><thead><tr><th>OCR METHOD</th><th>READING</th><th>OCR TIME</th><th>CONFIDENCE</th><th>EXACT MATCH</th><th>CHAR. ERROR</th></tr></thead><tbody>${plate.readings.map(reading => `<tr><td>${escape(reading.label)}</td><td class="comparison-reading">${reading.error ? `<span class="comparison-error">${escape(reading.error)}</span>` : escape(reading.text || 'No text read')}</td><td>${Number.isFinite(reading.ocr_ms) ? `${reading.ocr_ms.toFixed(1)} ms` : '—'}</td><td>${reading.recognition_confidence === null ? '—' : percent(reading.recognition_confidence)}</td><td>${reading.exact_match === null ? '—' : reading.exact_match ? '<span class="match-yes">Match</span>' : '<span class="match-no">Mismatch</span>'}</td><td>${Number.isFinite(reading.character_error_rate) ? `${(reading.character_error_rate * 100).toFixed(1)}%` : '—'}</td></tr>`).join('')}</tbody></table></div></div>`;
+    }).join('');
+    $('comparisonResults').hidden = !result.detections.length;
+    $('comparisonFooter').hidden = !result.detections.length;
+  }
+
+  async function compareOCR() {
+    if (state.inFlight || state.preparing) return;
+    haltAnalysis();
+    if (state.mode !== 'upload') video.pause();
+    const generation = state.generation;
+    const blob = state.mode === 'upload' ? state.image : await frameBlob();
+    if (!blob || generation !== state.generation) { updateButtons(); return; }
+    const methods = state.methods.filter(method => method.available).map(method => method.id);
+    if (methods.length < 2) { feedback('Install at least two OCR methods using Setup OCR.ps1, then restart the app.', 'warning'); return; }
+    state.comparison = null;
+    state.inFlight = true;
+    const controller = new AbortController();
+    state.controller = controller;
+    const timeout = setTimeout(() => controller.abort(), 300000);
+    $('comparisonStatus').hidden = false;
+    $('comparisonStatus').textContent = 'Preparing engines and comparing the same plate crops…';
+    $('comparisonResults').hidden = true;
+    $('comparisonFooter').hidden = true;
+    $('viewerSubtitle').textContent = 'Comparing OCR…';
+    updateButtons();
+    try {
+      const data = new FormData();
+      data.append('file', blob, 'comparison.jpg');
+      data.append('confidence', String(Number($('confidence').value) / 100));
+      data.append('expected_text', $('expectedText').value);
+      methods.forEach(method => data.append('methods', method));
+      const result = await api('/api/compare', {method:'POST', body:data, signal:controller.signal});
+      if (generation !== state.generation) return;
+      renderComparison(result);
+      $('viewerSubtitle').textContent = 'OCR comparison complete';
+    } catch (error) {
+      if (generation !== state.generation) return;
+      $('comparisonStatus').textContent = error.name === 'AbortError' ? 'Comparison timed out. Try again after preparing the models.' : error.message;
+      $('viewerSubtitle').textContent = 'Comparison paused';
+    } finally {
+      clearTimeout(timeout);
+      if (generation === state.generation) { state.inFlight = false; state.controller = null; updateButtons(); }
+    }
+  }
+
+  function exportComparison() {
+    const result = state.comparison;
+    if (!result) return;
+    const columns = ['compared_at','plate','ocr_method','expected_text','reading','raw_text','ocr_ms','confidence','exact_match','character_error_rate','detection_ms','model_setup_ms','crop_sha256','error'];
+    const rows = result.detections.flatMap((plate,index) => plate.readings.map(reading => [result.compared_at,index+1,reading.ocr_method,result.expected_text || '',reading.text,reading.raw_text,reading.ocr_ms,reading.recognition_confidence,reading.exact_match,reading.character_error_rate,result.detection_ms,result.preparation_ms[reading.ocr_method],plate.crop_sha256,reading.error]));
+    const cell = value => {
+      let text = String(value ?? '');
+      if (/^\s*[=+@-]/.test(text)) text = "'" + text;
+      return '"' + text.replaceAll('"','""') + '"';
+    };
+    const csv = [columns,...rows].map(row => row.map(cell).join(',')).join('\r\n');
+    const url = URL.createObjectURL(new Blob(['\uFEFF',csv],{type:'text/csv;charset=utf-8'}));
+    const link = document.createElement('a');
+    link.href = url; link.download = 'platesight-ocr-comparison.csv'; link.click();
+    setTimeout(() => URL.revokeObjectURL(url),1000);
+  }
+
+  $('compareBtn').addEventListener('click', compareOCR);
+  $('exportComparisonBtn').addEventListener('click', exportComparison);
+  $('ocrMethod').addEventListener('change', async () => {
+    haltAnalysis();
+    if (state.mode !== 'upload') video.pause();
+    state.ocrMethod = $('ocrMethod').value;
+    state.session = crypto.randomUUID();
+    clearResults();
+    feedback('');
+    await warmup();
+    if (state.ready) {
+      $('viewerSubtitle').textContent = 'OCR method changed';
+      feedback(state.mode === 'upload' && state.image ? 'OCR method changed. Select Analyze to read this image.' : 'OCR method changed. Start or resume recognition when ready.');
+    }
+  });
+  video.addEventListener('loadeddata', updateButtons);
   document.querySelectorAll('.input-tab').forEach((tab,index,tabs) => {
     tab.addEventListener('click',() => setMode(tab.dataset.mode));
     tab.addEventListener('keydown',(event) => {

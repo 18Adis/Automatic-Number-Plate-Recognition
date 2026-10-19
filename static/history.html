@@ -40,7 +40,7 @@
       <section class="history-page" aria-label="Saved detections">
         <div class="history-toolbar"><label class="history-search"><svg aria-hidden="true"><use href="#i-scan"/></svg><input id="search" type="search" aria-label="Search plate number" placeholder="Search plate number" autocomplete="off"></label><div class="history-actions"><button class="button small secondary" id="refreshBtn">Refresh</button><a class="button small secondary" href="/api/history.csv" download="platesight-detections.csv"><svg aria-hidden="true"><use href="#i-download"/></svg>Export CSV</a><button class="text-button" id="clearHistoryBtn" disabled>Clear history</button></div></div>
         <p id="historyError" class="feedback error" role="alert" hidden></p>
-        <div class="history-table-wrap"><table><thead><tr><th>PLATE IMAGE</th><th>NUMBER PLATE</th><th>DATE & TIME</th><th>SOURCE</th><th>DETECTION</th><th>READING</th><th>STATUS</th></tr></thead><tbody id="historyBody"><tr><td colspan="7"><div class="history-empty">Loading detections…</div></td></tr></tbody></table></div>
+        <div class="history-table-wrap"><table><thead><tr><th>PLATE IMAGE</th><th>NUMBER PLATE</th><th>DATE & TIME</th><th>SOURCE</th><th>OCR METHOD</th><th>DETECTION</th><th>READING</th><th>STATUS</th></tr></thead><tbody id="historyBody"><tr><td colspan="8"><div class="history-empty">Loading detections…</div></td></tr></tbody></table></div>
         <div class="history-pagination"><span id="pageLabel"></span><div><button class="button small secondary" id="previousBtn" disabled>Previous</button><button class="button small secondary" id="nextBtn" disabled>Next</button></div></div>
       </section>
       <footer class="page-footer"><span>PlateSight</span><span>Local workspace</span></footer>

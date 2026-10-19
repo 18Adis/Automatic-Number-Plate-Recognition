@@ -25,6 +25,9 @@ from .config import PROJECT_ROOT, Settings
 from .consensus import ConsensusTracker, is_reliable
 from .history import HistoryStore
 from .inference import InferenceEngine, normalize_text, probability
+from .ocr import OCR_LABELS, OCR_METHODS, edit_distance
+
+OCRMethod = Literal["cct", "easyocr", "tesseract", "paddleocr"]
 
 LOGGER = logging.getLogger(__name__)
 
@@ -131,11 +134,11 @@ def create_app(predictor=None, data_dir: Path | None = None, settings: Settings 
         return application.state.predictor.status()
 
     @application.post("/api/warmup")
-    def warmup():
+    def warmup(ocr_method: OCRMethod = Form("cct")):
         if not application.state.processing.acquire(blocking=False):
             raise HTTPException(429, "The model is busy. Wait for the current image, then retry.")
         try:
-            return application.state.predictor.warmup()
+            return application.state.predictor.warmup(ocr_method=ocr_method)
         except Exception as exc:
             LOGGER.exception("Model preparation failed")
             raise HTTPException(503, str(exc)) from exc
@@ -148,6 +151,7 @@ def create_app(predictor=None, data_dir: Path | None = None, settings: Settings 
         source: Literal["upload", "snapshot", "live", "video"] = Form("upload"),
         session_id: str | None = Form(None, max_length=80),
         confidence: float = Form(0.35, ge=0.10, le=0.95),
+        ocr_method: OCRMethod = Form("cct"),
     ):
         if source in {"live", "video"} and not (session_id and session_id.strip()):
             raise HTTPException(422, "Live and video frames need a session_id. Restart the camera and retry.")
@@ -158,7 +162,7 @@ def create_app(predictor=None, data_dir: Path | None = None, settings: Settings 
             height, width = image.shape[:2]
             started = time.perf_counter()
             try:
-                predictions = application.state.predictor.predict(image, confidence=confidence)
+                predictions = application.state.predictor.predict(image, confidence=confidence, ocr_method=ocr_method)
             except Exception as exc:
                 LOGGER.exception("Inference failed")
                 raise HTTPException(503, f"Could not analyze the image: {exc}") from exc
@@ -181,9 +185,10 @@ def create_app(predictor=None, data_dir: Path | None = None, settings: Settings 
                     "recognition_confidence": round(recognition_score, 4),
                     "status": "confirmed" if is_reliable(text, detection_score, recognition_score) else "needs_review",
                     "crop_data_url": crop_data_url(image, box),
+                    "ocr_method": ocr_method, "ocr_ms": prediction.ocr_ms,
                 })
             if source in {"live", "video"}:
-                application.state.tracker.update(f"{source}:{session_id}", detections)
+                application.state.tracker.update(f"{source}:{session_id}:{ocr_method}", detections)
             stored_frame = None
             for detection in detections:
                 if source in {"upload", "snapshot"} or detection["status"] == "confirmed":
@@ -195,7 +200,41 @@ def create_app(predictor=None, data_dir: Path | None = None, settings: Settings 
             return {
                 "width": width, "height": height, "inference_ms": inference_ms,
                 "detections": detections, "model_mode": application.state.predictor.status()["model_mode"],
+                "ocr_method": ocr_method,
             }
+        finally:
+            file.file.close()
+            application.state.processing.release()
+
+    @application.post("/api/compare")
+    def compare(file: UploadFile = File(...), confidence: float = Form(0.35, ge=0.10, le=0.95),
+                methods: list[OCRMethod] = Form(list(OCR_METHODS)), expected_text: str = Form("", max_length=32)):
+        methods = list(dict.fromkeys(methods))
+        expected = normalize_text(expected_text)
+        if len(methods) < 2:
+            raise HTTPException(422, "Select at least two different OCR methods.")
+        if expected_text.strip() and not 1 <= len(expected) <= 16:
+            raise HTTPException(422, "Expected plate must contain 1–16 letters or digits.")
+        if not application.state.processing.acquire(blocking=False):
+            raise HTTPException(429, "The model is busy. Wait for the current image, then retry.")
+        try:
+            image = decode_image(file.file.read(settings.max_upload_bytes + 1), settings)
+            try:
+                result = application.state.predictor.compare(image, confidence, methods)
+            except Exception as exc:
+                LOGGER.exception("OCR comparison failed")
+                raise HTTPException(503, f"Could not compare this image: {exc}") from exc
+            if expected and len(result["detections"]) > 1:
+                raise HTTPException(422, "Expected plate scoring needs one plate. Crop to one vehicle or leave the expected number empty.")
+            for detection in result["detections"]:
+                detection["crop_data_url"] = crop_data_url(image, detection["box"])
+                for reading in detection["readings"]:
+                    reading["label"] = "Custom character model" if reading["ocr_method"] == "cct" and settings.character_weights else OCR_LABELS[reading["ocr_method"]]
+                    reading["exact_match"] = reading["text"] == expected if expected and not reading["error"] else None
+                    reading["character_error_rate"] = edit_distance(expected, reading["text"]) / len(expected) if expected and not reading["error"] else None
+            result.update(width=image.shape[1], height=image.shape[0], expected_text=expected or None,
+                          normalization="Uppercase A–Z and 0–9; punctuation removed; no ambiguous-character substitution.")
+            return result
         finally:
             file.file.close()
             application.state.processing.release()
@@ -207,7 +246,7 @@ def create_app(predictor=None, data_dir: Path | None = None, settings: Settings 
     @application.get("/api/history.csv")
     def history_csv():
         buffer = StringIO(newline="")
-        columns = ["id", "text", "raw_text", "source", "timestamp", "detection_confidence", "recognition_confidence", "status"]
+        columns = ["id", "text", "raw_text", "source", "timestamp", "ocr_method", "ocr_ms", "detection_confidence", "recognition_confidence", "status"]
         writer = csv.DictWriter(buffer, fieldnames=columns, extrasaction="ignore")
         writer.writeheader()
         for record in application.state.history.list(limit=100000):

@@ -39,6 +39,7 @@
       <div class="model-notice" id="modelNotice" role="status"><svg><use href="#i-scan"/></svg><span id="modelMessage">Connecting to the recognition engine…</span><button id="warmupBtn" class="text-button" hidden>Load model <span aria-hidden="true">↗</span></button></div>
       <section class="recognition-layout" aria-label="Recognition workspace">
         <div class="workbench">
+          <div class="ocr-selector"><label for="ocrMethod">OCR method</label><select id="ocrMethod"><option value="cct">Plate OCR · CCT</option><option value="easyocr">EasyOCR</option><option value="tesseract">Tesseract</option><option value="paddleocr">PaddleOCR</option></select></div>
           <div class="input-tabs" role="tablist" aria-label="Input source">
             <button type="button" class="input-tab selected" id="tabUpload" role="tab" aria-selected="true" aria-controls="inputPanel" data-mode="upload"><svg><use href="#i-image"/></svg>Upload image</button>
             <button type="button" class="input-tab" id="tabCamera" role="tab" aria-selected="false" aria-controls="inputPanel" tabindex="-1" data-mode="camera"><svg><use href="#i-camera"/></svg>Live camera</button>
@@ -64,6 +65,13 @@
             <div id="feedback" class="feedback" role="status" aria-live="polite" hidden></div>
           </div>
           <div class="metrics" aria-label="Analysis statistics"><div><span>Plates in frame</span><strong id="plateCount">—</strong></div><div><span>Inference time</span><strong id="latency">—</strong></div><div><span>Compute device</span><strong id="device">—</strong></div><div><span>Session readings</span><strong id="readingCount">0</strong></div></div>
+          <section class="ocr-comparison" aria-labelledby="comparisonTitle">
+            <div class="comparison-heading"><div><h2 id="comparisonTitle">Compare OCR</h2><p>Run available methods on the same plate crops.</p></div><button id="compareBtn" class="button secondary" disabled>Compare methods</button></div>
+            <div class="comparison-input"><label for="expectedText">Expected plate <span>optional · one plate per image</span></label><input id="expectedText" type="text" maxlength="16" autocomplete="off" spellcheck="false" placeholder="e.g. KL07AB1234"><span>Enter the correct number to check exact match and character error rate.</span></div>
+            <p id="comparisonStatus" class="comparison-status" role="status" hidden></p>
+            <div id="comparisonResults" hidden></div>
+            <div id="comparisonFooter" class="comparison-footer" hidden><span>OCR time includes preprocessing, excludes model setup. Confidence scores differ by method.</span><button id="exportComparisonBtn" class="text-button">Export comparison CSV</button></div>
+          </section>
         </div>
         <aside class="inspector"><div class="inspector-heading"><h2>Recognition results</h2><span class="count-badge" id="resultCount">0</span></div><div class="inspector-caption"></div><div id="results" class="results" aria-live="polite"><div class="result-empty"><span class="result-empty-icon"><svg><use href="#i-scan"/></svg></span><h3>No results yet</h3><p>Select an input to begin.</p></div></div><div class="settings"><label for="confidence">Detection threshold <output id="confidenceValue">35%</output></label><input type="range" id="confidence" min="10" max="90" step="5" value="35"></div><div class="model-details"><span>RECOGNITION ENGINE</span><strong id="engineName">Connecting…</strong><p id="engineDescription">Model details will appear when connected.</p></div></aside>
       </section>

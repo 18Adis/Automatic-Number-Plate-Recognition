@@ -1,0 +1,90 @@
+{
+  "notice": "Single-image smoke check; not a dataset accuracy benchmark.",
+  "result": {
+    "detections": [
+      {
+        "box": [
+          192,
+          283,
+          350,
+          349
+        ],
+        "detection_confidence": 0.8964192271232605,
+        "crop_sha256": "00dede841605f3e78350eeb17ac31006d5b0a47bd126e15c03e880fb2ab3c4ac",
+        "readings": [
+          {
+            "ocr_method": "cct",
+            "text": "GJ18BN1018",
+            "raw_text": "GJ18BN1018",
+            "recognition_confidence": 0.9884,
+            "ocr_ms": 4.93,
+            "error": null,
+            "label": "Plate OCR \u00b7 CCT",
+            "exact_match": true,
+            "character_error_rate": 0.0
+          },
+          {
+            "ocr_method": "easyocr",
+            "text": "CGJTBHTO187",
+            "raw_text": "CGJTBHTO187",
+            "recognition_confidence": 0.0273,
+            "ocr_ms": 124.9,
+            "error": null,
+            "label": "EasyOCR",
+            "exact_match": false,
+            "character_error_rate": 0.7
+          },
+          {
+            "ocr_method": "tesseract",
+            "text": "",
+            "raw_text": "",
+            "recognition_confidence": 0.0,
+            "ocr_ms": 169.57,
+            "error": null,
+            "label": "Tesseract",
+            "exact_match": false,
+            "character_error_rate": 1.0
+          },
+          {
+            "ocr_method": "paddleocr",
+            "text": "GJ18BM1018",
+            "raw_text": "GJ18BM1018",
+            "recognition_confidence": 0.916,
+            "ocr_ms": 180.44,
+            "error": null,
+            "label": "PaddleOCR",
+            "exact_match": false,
+            "character_error_rate": 0.1
+          }
+        ]
+      }
+    ],
+    "detection_ms": 30.36,
+    "initialization_ms": 409.29,
+    "preparation_ms": {
+      "cct": 0.0,
+      "easyocr": 4212.77,
+      "tesseract": 38.9,
+      "paddleocr": 8174.27
+    },
+    "methods": [
+      "cct",
+      "easyocr",
+      "tesseract",
+      "paddleocr"
+    ],
+    "width": 640,
+    "height": 640,
+    "expected_text": "GJ18BN1018",
+    "normalization": "Uppercase A\u2013Z and 0\u20139; punctuation removed; no ambiguous-character substitution."
+  },
+  "image": "sample-03.jpg",
+  "versions": {
+    "fast-plate-ocr": "1.1.0",
+    "easyocr": "1.7.2",
+    "paddleocr": "3.3.3",
+    "paddlepaddle": "3.3.1",
+    "torch": "2.14.1+cpu",
+    "opencv-contrib-python": "4.10.0.84"
+  }
+}

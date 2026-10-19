@@ -18,14 +18,23 @@ class MockPredictor:
     def status(self):
         return {"ready": self.ready, "model_mode": "test", "detector": "test", "recognizer": "test", "device": "cpu", "message": "Test predictor"}
 
-    def warmup(self):
+    def warmup(self, ocr_method="cct"):
         self.ready = True
         return self.status()
 
-    def predict(self, image, confidence=0.35):
+    def predict(self, image, confidence=0.35, ocr_method="cct"):
         self.calls += 1
+        self.last_method = ocr_method
         self.ready = True
         return self.predictions
+
+    def compare(self, image, confidence, methods):
+        self.calls += 1
+        return {"detections": [{"box": prediction.box, "detection_confidence": 0.92, "crop_sha256": "test-crop",
+                "readings": [{"ocr_method": method, "text": "KL07AB1234" if method == "cct" else "KL07AB1235",
+                              "raw_text": "KL07AB1234", "recognition_confidence": 0.88, "ocr_ms": 3.2,
+                              "error": None} for method in methods]} for prediction in self.predictions],
+                "detection_ms": 2.5, "initialization_ms": 0, "preparation_ms": {method: 0 for method in methods}, "methods": methods}
 
 
 def image_bytes(size=(160, 100), format="PNG"):
@@ -186,3 +195,44 @@ def test_two_line_character_order_and_duplicate_suppression():
     ]
     text, confidence = ordered_characters(chars)
     assert text == "AB34" and confidence == pytest.approx(0.9)
+
+
+def test_ocr_selection_persists_in_history_and_csv(client):
+    response = analyze(client, ocr_method="paddleocr")
+    assert response.status_code == 200
+    assert client.app.state.predictor.last_method == "paddleocr"
+    assert response.json()["ocr_method"] == "paddleocr"
+    assert client.get("/api/history").json()["items"][0]["ocr_method"] == "paddleocr"
+    assert "paddleocr" in client.get("/api/history.csv").text
+    assert analyze(client, ocr_method="unrecognized").status_code == 422
+
+
+def test_switching_live_ocr_does_not_share_consensus_or_dedup(client):
+    for method in ["cct", "cct", "easyocr", "easyocr"]:
+        assert analyze(client, source="live", session_id="camera", ocr_method=method).json()["detections"][0]["status"] == "reading"
+    for method in ["cct", "easyocr"]:
+        assert analyze(client, source="live", session_id="camera", ocr_method=method).json()["detections"][0]["status"] == "confirmed"
+    items = client.get("/api/history").json()["items"]
+    assert len(items) == 2 and {item["ocr_method"] for item in items} == {"cct", "easyocr"}
+
+
+def test_comparison_ground_truth_metrics_and_no_history_side_effects(client):
+    response = client.post("/api/compare", files={"file": ("vehicle.png", image_bytes(), "image/png")},
+                           data={"expected_text": "kl 07-ab1234"})
+    assert response.status_code == 200
+    result = response.json()
+    assert result["expected_text"] == "KL07AB1234"
+    readings = result["detections"][0]["readings"]
+    assert len(readings) == 4
+    assert readings[0]["exact_match"] is True and readings[0]["character_error_rate"] == 0
+    assert readings[3]["ocr_method"] == "paddleocr" and readings[3]["character_error_rate"] == pytest.approx(0.1)
+    assert client.get("/api/history").json()["items"] == []
+    result = client.post("/api/compare", files={"file": ("vehicle.png", image_bytes(), "image/png")}).json()
+    assert all(reading["exact_match"] is None for reading in result["detections"][0]["readings"])
+
+
+def test_comparison_rejects_ambiguous_ground_truth_and_duplicate_methods(client):
+    fields = {"expected_text": "KL07AB1234"}
+    client.app.state.predictor.predictions *= 2
+    assert client.post("/api/compare", files={"file": ("x.png", image_bytes(), "image/png")}, data=fields).status_code == 422
+    assert client.post("/api/compare", files={"file": ("x.png", image_bytes(), "image/png")}, data={"methods": ["cct", "cct"]}).status_code == 422
